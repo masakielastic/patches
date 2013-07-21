@@ -62,8 +62,8 @@ echo 'no option', PHP_EOL,
 | 11.643928050995 | 11.705342054367 |
 | 11.620106935501 | 11.790549993515 |
 
-Byte access vs json_utf8_to_utf32
----------------------------------
+1-byte loop access vs json_utf8_to_utf32
+----------------------------------------
 
 ### Benchmark code
 

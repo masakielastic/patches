@@ -30,8 +30,6 @@ json_utf8_to_utf16 vs json_utf8_to_utf32
 ### Benchmark code
 
 ```php
-$array = array_fill(0, 100, str_repeat("\x24"."\xC2\xA2"."\xE2\x82\xAC"."\xF0\xA4\xAD\xA2", 100));
-
 echo 'no option', PHP_EOL,
     timer(function() use ($array) { json_encode($array); }), PHP_EOL;
 ```
@@ -64,8 +62,6 @@ Byte access vs json_utf8_to_utf32
 ### Benchmark code
 
 ```php
-$array = array_fill(0, 100, str_repeat("\x24"."\xC2\xA2"."\xE2\x82\xAC"."\xF0\xA4\xAD\xA2", 100));
-
 echo 'JSON_UNESCAPED_UNICODE', PHP_EOL,
     timer(function() use ($array) { json_encode($array, JSON_UNESCAPED_UNICODE); }), PHP_EOL;
 ```
@@ -99,8 +95,6 @@ utf8_to_utf32 vs php_next_utf8_char
 ### Benchmark code
 
 ```php
-$array = array_fill(0, 100, str_repeat("\x24"."\xC2\xA2"."\xE2\x82\xAC"."\xF0\xA4\xAD\xA2", 100));
-
 echo 'JSON_NOTUTF8_SUBSTITUTE', PHP_EOL,
     timer(function() use ($array) { json_encode($array, JSON_NOTUTF8_SUBSTITUTE); }), PHP_EOL;
 ```
@@ -131,8 +125,6 @@ echo 'JSON_NOTUTF8_SUBSTITUTE', PHP_EOL,
 ### Benchmark code
 
 ```php
-$array = array_fill(0, 100, str_repeat("\x24"."\xC2\xA2"."\xE2\x82\xAC"."\xF0\xA4\xAD\xA2", 100));
-
 echo 'JSON_NOTUTF8_SUBSTITUTE|JSON_UNESCAPED_UNICODE', PHP_EOL,
     timer(function() use ($array) { json_encode($array, JSON_NOTUTF8_SUBSTITUTE|JSON_UNESCAPED_UNICODE); }), PHP_EOL;
 ```

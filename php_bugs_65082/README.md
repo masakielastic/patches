@@ -21,6 +21,12 @@ function timer(callable $callable, $runs = 10000) {
 
 }
 
+// https://en.wikipedia.org/wiki/UTF-8#Examples
+// U+0024: "\x24"
+// U+00A2: "\xC2\xA2"
+// U+20AC: "\xE2\x82\xAC"
+// U+24B62: "\xF0\xA4\xAD\xA2"
+
 $array = array_fill(0, 100, str_repeat("\x24"."\xC2\xA2"."\xE2\x82\xAC"."\xF0\xA4\xAD\xA2", 100));
 ```
 

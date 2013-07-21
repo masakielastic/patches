@@ -24,8 +24,8 @@ function timer(callable $callable, $runs = 10000) {
 $array = array_fill(0, 100, str_repeat("\x24"."\xC2\xA2"."\xE2\x82\xAC"."\xF0\xA4\xAD\xA2", 100));
 ```
 
-json_utf8_to_utf16 vs json_utf8_to_utf32 (no option)
------------------------------------------------------
+json_utf8_to_utf16 vs json_utf8_to_utf32
+----------------------------------------
 
 ### Benchmark code
 
@@ -70,8 +70,8 @@ no patch
 11.705342054367
 11.790549993515
 
-Byte access vs json_utf8_to_utf32 (JSON_UNESCAPED_UNICODE)
-----------------------------------------------------------
+Byte access vs json_utf8_to_utf32
+---------------------------------
 
 ### Benchmark code
 
@@ -116,8 +116,8 @@ no patch
 8.5978729724884
 8.6118381023407
 
-utf8_to_utf32 vs php_next_utf8_char (JSON_NOTUTF8_SUBSTITUTE)
--------------------------------------------------------------
+utf8_to_utf32 vs php_next_utf8_char
+-----------------------------------
 
 ### Benchmark code
 
@@ -162,8 +162,8 @@ average(s): 11.734688210488
 11.609498023987
 11.603165149689
 
-utf8_to_utf32 vs php_next_utf8_char (JSON_NOTUTF8_SUBSTITUTE|JSON_UNESCAPED_UNICODE)
-------------------------------------------------------------------------------------
+utf8_to_utf32 vs php_next_utf8_char
+-----------------------------------
 
 ### Benchmark code
 

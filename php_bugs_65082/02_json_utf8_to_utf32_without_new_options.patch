@@ -1,0 +1,212 @@
+diff --git a/ext/json/json.c b/ext/json/json.c
+index 5360841..a480cf8 100644
+--- a/ext/json/json.c
++++ b/ext/json/json.c
+@@ -358,49 +358,60 @@ static void json_encode_array(smart_str *buf, zval **val, int options TSRMLS_DC)
+ }
+ /* }}} */
+ 
+-static int json_utf8_to_utf16(unsigned short *utf16, char utf8[], int len) /* {{{ */
++static int json_utf8_to_utf32(unsigned int *utf32, char utf8[], int utf8_len) /* {{{ */
+ {
+-	size_t pos = 0, us;
+-	int j, status;
+-
+-	if (utf16) {
+-		/* really convert the utf8 string */
+-		for (j=0 ; pos < len ; j++) {
+-			us = php_next_utf8_char((const unsigned char *)utf8, len, &pos, &status);
+-			if (status != SUCCESS) {
+-				return -1;
+-			}
+-			/* From http://en.wikipedia.org/wiki/UTF16 */
+-			if (us >= 0x10000) {
+-				us -= 0x10000;
+-				utf16[j++] = (unsigned short)((us >> 10) | 0xd800);
+-				utf16[j] = (unsigned short)((us & 0x3ff) | 0xdc00);
+-			} else {
+-				utf16[j] = (unsigned short)us;
+-			}
++	size_t pos = 0;
++	int len = 0, status;
++	unsigned int code_point;
++
++	while (pos < utf8_len) {
++ 
++		code_point = php_next_utf8_char((const unsigned char *) utf8, utf8_len, &pos, &status);
++ 
++		if (status == FAILURE) {
++			return -1;
+ 		}
+-	} else {
+-		/* Only check if utf8 string is valid, and compute utf16 lenght */
+-		for (j=0 ; pos < len ; j++) {
+-			us = php_next_utf8_char((const unsigned char *)utf8, len, &pos, &status);
+-			if (status != SUCCESS) {
+-				return -1;
+-			}
+-			if (us >= 0x10000) {
+-				j++;
+-			}
++ 
++		utf32[len++] = code_point;
++	}
++ 
++	return len;
++}
++/* }}} */
++
++static int json_utf8_to_utf16(unsigned short *utf16, char utf8[], int utf8_len) /* {{{ */
++{
++	int len = 0, status;
++ 	unsigned int code_point;
++	size_t pos = 0;
++
++	while (pos < utf8_len) {
++		code_point = php_next_utf8_char((const unsigned char *) utf8, utf8_len, &pos, &status);
++ 
++		if (status == FAILURE) {
++			return -1;
++		}
++ 
++		/* From http://en.wikipedia.org/wiki/UTF16 */
++		if (code_point < 0x10000) {
++			utf16[len++] = (unsigned short) code_point;
++		} else {
++			code_point -= 0x10000;
++			utf16[len++] = (unsigned short) ((code_point >> 10) | 0xd800);
++			utf16[len++] = (unsigned short) ((code_point & 0x3ff) | 0xdc00);
+ 		}
+ 	}
+-	return j;
++ 
++	return len;
+ }
+ /* }}} */
+ 
+ 
+ static void json_escape_string(smart_str *buf, char *s, int len, int options TSRMLS_DC) /* {{{ */
+ {
+-	int pos = 0, ulen = 0;
+-	unsigned short us;
+-	unsigned short *utf16;
++	int pos = 0;
++	unsigned int us, *utf32;
++	unsigned short w1, w2;
+ 	size_t newlen;
+ 
+ 	if (len == 0) {
+@@ -432,13 +443,14 @@ static void json_escape_string(smart_str *buf, char *s, int len, int options TSR
+ 
+ 	}
+ 
+-	utf16 = (options & PHP_JSON_UNESCAPED_UNICODE) ? NULL : (unsigned short *) safe_emalloc(len, sizeof(unsigned short), 0);
+-	ulen = json_utf8_to_utf16(utf16, s, len);
+-	if (ulen <= 0) {
+-		if (utf16) {
+-			efree(utf16);
++	utf32 = (unsigned int *) safe_emalloc(len, sizeof(unsigned int), 0);
++	len = json_utf8_to_utf32(utf32, s, len);
++
++	if (len <= 0) {
++		if (utf32) {
++			efree(utf32);
+ 		}
+-		if (ulen < 0) {
++		if (len < 0) {
+ 			JSON_G(error_code) = PHP_JSON_ERROR_UTF8;
+ 			smart_str_appendl(buf, "null", 4);
+ 		} else {
+@@ -446,9 +458,6 @@ static void json_escape_string(smart_str *buf, char *s, int len, int options TSR
+ 		}
+ 		return;
+ 	}
+-	if (!(options & PHP_JSON_UNESCAPED_UNICODE)) {
+-		len = ulen;
+-	}
+ 
+ 	/* pre-allocate for string length plus 2 quotes */
+ 	smart_str_alloc(buf, len+2, 0);
+@@ -456,7 +465,7 @@ static void json_escape_string(smart_str *buf, char *s, int len, int options TSR
+ 
+ 	while (pos < len)
+ 	{
+-		us = (options & PHP_JSON_UNESCAPED_UNICODE) ? s[pos++] : utf16[pos++];
++		us = utf32[pos++];
+ 
+ 		switch (us)
+ 		{
+@@ -533,22 +542,58 @@ static void json_escape_string(smart_str *buf, char *s, int len, int options TSR
+ 				break;
+ 
+ 			default:
+-				if (us >= ' ' && ((options & PHP_JSON_UNESCAPED_UNICODE) || (us & 127) == us)) {
+-					smart_str_appendc(buf, (unsigned char) us);
+-				} else {
++				if (us < 0x20) {
++					smart_str_appendl(buf, "\\u", 2);
++					smart_str_appendc(buf, digits[(us >> 12) & 0xf]);
++					smart_str_appendc(buf, digits[(us >> 8) & 0xf]);
++					smart_str_appendc(buf, digits[(us >> 4) & 0xf]);
++					smart_str_appendc(buf, digits[(us & 0xf)]);
++				} else if (us < 0x80) {
++					smart_str_appendc(buf, us);
++				} else if (options & PHP_JSON_UNESCAPED_UNICODE) {
++
++					if (us < 0x800) {
++						smart_str_appendc(buf, 0xc0 | (us >> 6));
++						smart_str_appendc(buf, 0x80 | (us & 0x3f));
++	   				} else if (us < 0x10000) {
++						smart_str_appendc(buf, 0xe0 | (us >> 12));
++						smart_str_appendc(buf, 0x80 | ((us >> 6) & 0x3f));
++						smart_str_appendc(buf, 0x80 | (us & 0x3f));
++					} else {
++						smart_str_appendc(buf, 0xf0 | (us >> 18));
++						smart_str_appendc(buf, 0x80 | ((us >> 12) & 0x3f));
++						smart_str_appendc(buf, 0x80 | ((us >> 6) & 0x3f));
++						smart_str_appendc(buf, 0x80 | (us & 0x3f));
++					}
++
++				} else if (us < 0x10000) {
+ 					smart_str_appendl(buf, "\\u", 2);
+-					smart_str_appendc(buf, digits[(us & 0xf000) >> 12]);
+-					smart_str_appendc(buf, digits[(us & 0xf00)  >> 8]);
+-					smart_str_appendc(buf, digits[(us & 0xf0)   >> 4]);
++					smart_str_appendc(buf, digits[(us >> 12) & 0xf]);
++					smart_str_appendc(buf, digits[(us >> 8) & 0xf]);
++					smart_str_appendc(buf, digits[(us >> 4) & 0xf]);
+ 					smart_str_appendc(buf, digits[(us & 0xf)]);
++				} else {
++					us -= 0x10000;
++					w1 = (unsigned short) ((us >> 10) | 0xd800);
++					w2 = (unsigned short) ((us & 0x3ff) | 0xdc00);
++					smart_str_appendl(buf, "\\u", 2);
++					smart_str_appendc(buf, digits[(w1 >> 12) & 0xf]);
++					smart_str_appendc(buf, digits[(w1 >> 8) & 0xf]);
++					smart_str_appendc(buf, digits[(w1 >> 4) & 0xf]);
++					smart_str_appendc(buf, digits[(w1 & 0xf)]);	
++					smart_str_appendl(buf, "\\u", 2);
++					smart_str_appendc(buf, digits[(w2 >> 12) & 0xf]);
++					smart_str_appendc(buf, digits[(w2 >> 8) & 0xf]);
++					smart_str_appendc(buf, digits[(w2 >> 4) & 0xf]);
++					smart_str_appendc(buf, digits[(w2 & 0xf)]);
+ 				}
+ 				break;
+ 		}
+ 	}
+ 
+ 	smart_str_appendc(buf, '"');
+-	if (utf16) {
+-		efree(utf16);
++	if (utf32) {
++		efree(utf32);
+ 	}
+ }
+ /* }}} */
+@@ -869,4 +914,4 @@ static PHP_FUNCTION(json_last_error_msg)
+  * End:
+  * vim600: noet sw=4 ts=4 fdm=marker
+  * vim<600: noet sw=4 ts=4
+- */
++ */
+\ No newline at end of file

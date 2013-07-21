@@ -38,10 +38,10 @@ echo 'no option', PHP_EOL,
 
 ### Result
 
-| Average(s)      | Name       | 
-| --------------- |-----------:|
-| 11.57733232975  | no patch   |
-| 11.559496402741 | 02_json_utf8_to_utf32_without_new_options |
+| Name                                      | Average(s)      | 
+| ----------------------------------------- |----------------:|
+| no patch                                  | 11.57733232975  |
+| 02_json_utf8_to_utf32_without_new_options | 11.559496402741 |
 
 ### Data
 
@@ -72,10 +72,10 @@ echo 'JSON_UNESCAPED_UNICODE', PHP_EOL,
 
 ### Result
 
-| Average(s)      | Name       | 
-| --------------- |-----------:|
-| 10.251899194717 | no patch |
-| 8.7696504116058 | 02_json_utf8_to_utf32_without_new_options |
+| Name                                      | Average(s)      | 
+| ----------------------------------------- |----------------:|
+| no patch                                  | 10.251899194717 |
+| 02_json_utf8_to_utf32_without_new_options | 8.7696504116058 |
 
 ### Data
 
@@ -107,15 +107,15 @@ echo 'JSON_NOTUTF8_SUBSTITUTE', PHP_EOL,
 
 ### Result
 
-| Average(s)      | Name                  | 
-| --------------- |----------------------:|
-| 11.869680118561 | 03_json_utf8_to_utf32 |
-| 11.734688210488 | 04_php_next_utf8_char_in_json_escape_string |
+| Name                                        | Average(s)      |
+| ------------------------------------------- |----------------:|
+| 03_json_utf8_to_utf32                       | 11.869680118561 |
+| 04_php_next_utf8_char_in_json_escape_string | 11.734688210488 |
 
 ### Data
 
 | 03_json_utf8_to_utf32 | 04_php_next_utf8_char_in_json_escape_string |
-| --------------------- | ----------------------------------------: |
+| --------------------- | ------------------------------------------: |
 | 12.274589061737       | 11.593976020813 |
 | 12.303457021713       | 12.252948045731 |
 | 11.701003074646       | 12.145417928696 |
@@ -139,15 +139,15 @@ echo 'JSON_NOTUTF8_SUBSTITUTE|JSON_UNESCAPED_UNICODE', PHP_EOL,
 
 ### Result
 
-| Average(s)      | Name                  | 
-| --------------- |----------------------:|
-| 9.0312395334244 | 03_json_utf8_to_utf32 |
-| 8.5260551214218 | 04_php_next_utf8_char_in_json_escape_string |
+| Name                                        | Average(s)      |
+| ------------------------------------------- |----------------:|
+| 03_json_utf8_to_utf32                       | 9.0312395334244 |
+| 04_php_next_utf8_char_in_json_escape_string | 8.5260551214218 |
 
 ### Data
 
 | 03_json_utf8_to_utf32 | 04_php_next_utf8_char_in_json_escape_string |
-| --------------------- | ----------------------------------------: |
+| --------------------- | ------------------------------------------: |
 | 9.2738838195801       | 8.6885390281677 |
 | 8.9508287906647       | 8.3932950496674 |
 | 8.9606170654297       | 8.8615410327911 |

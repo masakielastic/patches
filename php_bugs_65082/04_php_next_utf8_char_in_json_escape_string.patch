@@ -1,5 +1,5 @@
 diff --git a/ext/json/json.c b/ext/json/json.c
-index 5360841..39db1b8 100644
+index 5360841..0f335a0 100644
 --- a/ext/json/json.c
 +++ b/ext/json/json.c
 @@ -103,7 +103,9 @@ static PHP_MINIT_FUNCTION(json)
@@ -118,7 +118,7 @@ index 5360841..39db1b8 100644
 -	unsigned short us;
 -	unsigned short *utf16;
 -	size_t newlen;
-+	size_t pos = 0, old_pos, char_len, newlen;
++	size_t pos = 0, newlen;
 +	unsigned int us, *utf32;
 +	unsigned short w1, w2;
 +	int status;
@@ -162,22 +162,19 @@ index 5360841..39db1b8 100644
  
  	/* pre-allocate for string length plus 2 quotes */
  	smart_str_alloc(buf, len+2, 0);
-@@ -456,7 +493,26 @@ static void json_escape_string(smart_str *buf, char *s, int len, int options TSR
+@@ -456,7 +493,23 @@ static void json_escape_string(smart_str *buf, char *s, int len, int options TSR
  
  	while (pos < len)
  	{
 -		us = (options & PHP_JSON_UNESCAPED_UNICODE) ? s[pos++] : utf16[pos++];
 +		if ((options & PHP_JSON_NOTUTF8_SUBSTITUTE) || (options & PHP_JSON_NOTUTF8_IGNORE)) {
 +
-+			old_pos = pos;
 +			us = php_next_utf8_char((const unsigned char *) s, len, &pos, &status);
-+			char_len = pos - old_pos;
 +
 +			if (status == FAILURE) {
 +				if (options & PHP_JSON_NOTUTF8_SUBSTITUTE) {
 +					/* Unicode Character 'REPLACEMENT CHARACTER' (U+FFFD) */
 +					us = 0xfffd;
-+					char_len = 3;
 +				} else if (options & PHP_JSON_NOTUTF8_IGNORE) {
 +					/* ignore this invalid character */
 +					continue;
@@ -190,7 +187,7 @@ index 5360841..39db1b8 100644
  
  		switch (us)
  		{
-@@ -533,23 +589,86 @@ static void json_escape_string(smart_str *buf, char *s, int len, int options TSR
+@@ -533,23 +586,81 @@ static void json_escape_string(smart_str *buf, char *s, int len, int options TSR
  				break;
  
  			default:
@@ -209,17 +206,15 @@ index 5360841..39db1b8 100644
 +
 +					if ((options & PHP_JSON_NOTUTF8_SUBSTITUTE) || (options & PHP_JSON_NOTUTF8_IGNORE)) {
 +
-+						if (char_len == 2) {
++						if (status == FAILURE) {
++							smart_str_appendl(buf, "\xEF\xBF\xBD", 3);	
++						} else if (us < 0x800) {
 +							smart_str_appendc(buf, s[pos - 2]);
 +							smart_str_appendc(buf, us);
-+						} else if (char_len == 3) {
-+							if (status == SUCCESS) {
-+								smart_str_appendc(buf, s[pos - 3]);
-+								smart_str_appendc(buf, s[pos - 2]);
-+								smart_str_appendc(buf, us);
-+							} else {
-+								smart_str_appendl(buf, "\xEF\xBF\xBD", 3);			
-+							}
++						} else if (us < 0x10000) {
++							smart_str_appendc(buf, s[pos - 3]);
++							smart_str_appendc(buf, s[pos - 2]);
++							smart_str_appendc(buf, us);
 +						} else {
 +							smart_str_appendc(buf, s[pos - 4]);
 +							smart_str_appendc(buf, s[pos - 3]);
@@ -227,21 +222,18 @@ index 5360841..39db1b8 100644
 +							smart_str_appendc(buf, us);
 +						}
 +
++					} else if (us < 0x800) {
++						smart_str_appendc(buf, 0xc0 | (us >> 6));
++						smart_str_appendc(buf, 0x80 | (us & 0x3f));
++	   				} else if (us < 0x10000) {
++						smart_str_appendc(buf, 0xe0 | (us >> 12));
++						smart_str_appendc(buf, 0x80 | ((us >> 6) & 0x3f));
++						smart_str_appendc(buf, 0x80 | (us & 0x3f));
 +					} else {
-+ 
-+						if (us < 0x800) {
-+							smart_str_appendc(buf, 0xc0 | (us >> 6));
-+							smart_str_appendc(buf, 0x80 | (us & 0x3f));
-+	   					} else if (us < 0x10000) {
-+							smart_str_appendc(buf, 0xe0 | (us >> 12));
-+							smart_str_appendc(buf, 0x80 | ((us >> 6) & 0x3f));
-+							smart_str_appendc(buf, 0x80 | (us & 0x3f));
-+						} else {
-+							smart_str_appendc(buf, 0xf0 | (us >> 18));
-+							smart_str_appendc(buf, 0x80 | ((us >> 12) & 0x3f));
-+							smart_str_appendc(buf, 0x80 | ((us >> 6) & 0x3f));
-+							smart_str_appendc(buf, 0x80 | (us & 0x3f));
-+						}
++						smart_str_appendc(buf, 0xf0 | (us >> 18));
++						smart_str_appendc(buf, 0x80 | ((us >> 12) & 0x3f));
++						smart_str_appendc(buf, 0x80 | ((us >> 6) & 0x3f));
++						smart_str_appendc(buf, 0x80 | (us & 0x3f));
 +					}
 +
 +				} else if (us < 0x10000) {
@@ -285,7 +277,7 @@ index 5360841..39db1b8 100644
  }
  /* }}} */
  
-@@ -670,7 +789,7 @@ PHP_JSON_API void php_json_decode_ex(zval *return_value, char *str, int str_len,
+@@ -670,7 +781,7 @@ PHP_JSON_API void php_json_decode_ex(zval *return_value, char *str, int str_len,
  
  	utf16 = (unsigned short *) safe_emalloc((str_len+1), sizeof(unsigned short), 1);
  
@@ -294,7 +286,7 @@ index 5360841..39db1b8 100644
  	if (utf16_len <= 0) {
  		if (utf16) {
  			efree(utf16);
-@@ -869,4 +988,4 @@ static PHP_FUNCTION(json_last_error_msg)
+@@ -869,4 +980,4 @@ static PHP_FUNCTION(json_last_error_msg)
   * End:
   * vim600: noet sw=4 ts=4 fdm=marker
   * vim<600: noet sw=4 ts=4
@@ -302,15 +294,71 @@ index 5360841..39db1b8 100644
 + */
 \ No newline at end of file
 diff --git a/ext/json/php_json.h b/ext/json/php_json.h
-index ec707ce..2360278 100644
+index ec707ce..d8fbbee 100644
 --- a/ext/json/php_json.h
 +++ b/ext/json/php_json.h
-@@ -65,6 +65,8 @@ extern zend_class_entry *php_json_serializable_ce;
- #define PHP_JSON_PRETTY_PRINT	(1<<7)
- #define PHP_JSON_UNESCAPED_UNICODE	(1<<8)
+@@ -38,9 +38,9 @@ extern zend_module_entry json_module_entry;
+ #endif
+ 
+ ZEND_BEGIN_MODULE_GLOBALS(json)
+-	int encoder_depth;
+-	int error_code;
+-	int encode_max_depth;
++  int encoder_depth;
++  int error_code;
++  int encode_max_depth;
+ ZEND_END_MODULE_GLOBALS(json)
+ 
+ #ifdef ZTS
+@@ -55,28 +55,30 @@ extern zend_class_entry *php_json_serializable_ce;
+ 
+ 
+ /* json_encode() options */
+-#define PHP_JSON_HEX_TAG	(1<<0)
+-#define PHP_JSON_HEX_AMP	(1<<1)
+-#define PHP_JSON_HEX_APOS	(1<<2)
+-#define PHP_JSON_HEX_QUOT	(1<<3)
+-#define PHP_JSON_FORCE_OBJECT	(1<<4)
+-#define PHP_JSON_NUMERIC_CHECK	(1<<5)
+-#define PHP_JSON_UNESCAPED_SLASHES	(1<<6)
+-#define PHP_JSON_PRETTY_PRINT	(1<<7)
+-#define PHP_JSON_UNESCAPED_UNICODE	(1<<8)
++#define PHP_JSON_HEX_TAG  (1<<0)
++#define PHP_JSON_HEX_AMP  (1<<1)
++#define PHP_JSON_HEX_APOS (1<<2)
++#define PHP_JSON_HEX_QUOT (1<<3)
++#define PHP_JSON_FORCE_OBJECT (1<<4)
++#define PHP_JSON_NUMERIC_CHECK  (1<<5)
++#define PHP_JSON_UNESCAPED_SLASHES  (1<<6)
++#define PHP_JSON_PRETTY_PRINT (1<<7)
++#define PHP_JSON_UNESCAPED_UNICODE  (1<<8)
  #define PHP_JSON_PARTIAL_OUTPUT_ON_ERROR (1<<9)
 +#define PHP_JSON_NOTUTF8_SUBSTITUTE (1<<10)
 +#define PHP_JSON_NOTUTF8_IGNORE (1<<11)
  
  /* Internal flags */
- #define PHP_JSON_OUTPUT_ARRAY	0
+-#define PHP_JSON_OUTPUT_ARRAY	0
+-#define PHP_JSON_OUTPUT_OBJECT	1
++#define PHP_JSON_OUTPUT_ARRAY 0
++#define PHP_JSON_OUTPUT_OBJECT  1
+ 
+ /* json_decode() options */
+-#define PHP_JSON_OBJECT_AS_ARRAY	(1<<0)
+-#define PHP_JSON_BIGINT_AS_STRING	(1<<1)
++#define PHP_JSON_OBJECT_AS_ARRAY  (1<<0)
++#define PHP_JSON_BIGINT_AS_STRING (1<<1)
+ 
+ static inline void php_json_decode(zval *return_value, char *str, int str_len, zend_bool assoc, long depth TSRMLS_DC)
+ {
+-	php_json_decode_ex(return_value, str, str_len, assoc ? PHP_JSON_OBJECT_AS_ARRAY : 0, depth TSRMLS_CC);
++  php_json_decode_ex(return_value, str, str_len, assoc ? PHP_JSON_OBJECT_AS_ARRAY : 0, depth TSRMLS_CC);
+ }
+ 
+ 
+@@ -89,4 +91,4 @@ static inline void php_json_decode(zval *return_value, char *str, int str_len, z
+  * End:
+  * vim600: noet sw=4 ts=4 fdm=marker
+  * vim<600: noet sw=4 ts=4
+- */
++ */
+\ No newline at end of file

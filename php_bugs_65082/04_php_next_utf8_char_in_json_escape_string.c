@@ -431,7 +431,7 @@ static int json_utf8_to_utf16(unsigned short *utf16, char utf8[], int utf8_len, 
 
 static void json_escape_string(smart_str *buf, char *s, int len, int options TSRMLS_DC) /* {{{ */
 {
-	size_t pos = 0, old_pos, char_len, newlen;
+	size_t pos = 0, newlen;
 	unsigned int us, *utf32;
 	unsigned short w1, w2;
 	int status;
@@ -495,15 +495,12 @@ static void json_escape_string(smart_str *buf, char *s, int len, int options TSR
 	{
 		if ((options & PHP_JSON_NOTUTF8_SUBSTITUTE) || (options & PHP_JSON_NOTUTF8_IGNORE)) {
 
-			old_pos = pos;
 			us = php_next_utf8_char((const unsigned char *) s, len, &pos, &status);
-			char_len = pos - old_pos;
 
 			if (status == FAILURE) {
 				if (options & PHP_JSON_NOTUTF8_SUBSTITUTE) {
 					/* Unicode Character 'REPLACEMENT CHARACTER' (U+FFFD) */
 					us = 0xfffd;
-					char_len = 3;
 				} else if (options & PHP_JSON_NOTUTF8_IGNORE) {
 					/* ignore this invalid character */
 					continue;
@@ -601,17 +598,15 @@ static void json_escape_string(smart_str *buf, char *s, int len, int options TSR
 
 					if ((options & PHP_JSON_NOTUTF8_SUBSTITUTE) || (options & PHP_JSON_NOTUTF8_IGNORE)) {
 
-						if (char_len == 2) {
+						if (status == FAILURE) {
+							smart_str_appendl(buf, "\xEF\xBF\xBD", 3);	
+						} else if (us < 0x800) {
 							smart_str_appendc(buf, s[pos - 2]);
 							smart_str_appendc(buf, us);
-						} else if (char_len == 3) {
-							if (status == SUCCESS) {
-								smart_str_appendc(buf, s[pos - 3]);
-								smart_str_appendc(buf, s[pos - 2]);
-								smart_str_appendc(buf, us);
-							} else {
-								smart_str_appendl(buf, "\xEF\xBF\xBD", 3);			
-							}
+						} else if (us < 0x10000) {
+							smart_str_appendc(buf, s[pos - 3]);
+							smart_str_appendc(buf, s[pos - 2]);
+							smart_str_appendc(buf, us);
 						} else {
 							smart_str_appendc(buf, s[pos - 4]);
 							smart_str_appendc(buf, s[pos - 3]);
@@ -619,21 +614,18 @@ static void json_escape_string(smart_str *buf, char *s, int len, int options TSR
 							smart_str_appendc(buf, us);
 						}
 
+					} else if (us < 0x800) {
+						smart_str_appendc(buf, 0xc0 | (us >> 6));
+						smart_str_appendc(buf, 0x80 | (us & 0x3f));
+	   				} else if (us < 0x10000) {
+						smart_str_appendc(buf, 0xe0 | (us >> 12));
+						smart_str_appendc(buf, 0x80 | ((us >> 6) & 0x3f));
+						smart_str_appendc(buf, 0x80 | (us & 0x3f));
 					} else {
- 
-						if (us < 0x800) {
-							smart_str_appendc(buf, 0xc0 | (us >> 6));
-							smart_str_appendc(buf, 0x80 | (us & 0x3f));
-	   					} else if (us < 0x10000) {
-							smart_str_appendc(buf, 0xe0 | (us >> 12));
-							smart_str_appendc(buf, 0x80 | ((us >> 6) & 0x3f));
-							smart_str_appendc(buf, 0x80 | (us & 0x3f));
-						} else {
-							smart_str_appendc(buf, 0xf0 | (us >> 18));
-							smart_str_appendc(buf, 0x80 | ((us >> 12) & 0x3f));
-							smart_str_appendc(buf, 0x80 | ((us >> 6) & 0x3f));
-							smart_str_appendc(buf, 0x80 | (us & 0x3f));
-						}
+						smart_str_appendc(buf, 0xf0 | (us >> 18));
+						smart_str_appendc(buf, 0x80 | ((us >> 12) & 0x3f));
+						smart_str_appendc(buf, 0x80 | ((us >> 6) & 0x3f));
+						smart_str_appendc(buf, 0x80 | (us & 0x3f));
 					}
 
 				} else if (us < 0x10000) {

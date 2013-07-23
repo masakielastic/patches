@@ -1,0 +1,80 @@
+diff --git a/ext/json/json.c b/ext/json/json.c
+index 5360841..1496609 100644
+--- a/ext/json/json.c
++++ b/ext/json/json.c
+@@ -33,6 +33,7 @@
+ 
+ static PHP_MINFO_FUNCTION(json);
+ static PHP_FUNCTION(json_encode);
++static PHP_FUNCTION(json_secure_encode);
+ static PHP_FUNCTION(json_decode);
+ static PHP_FUNCTION(json_last_error);
+ static PHP_FUNCTION(json_last_error_msg);
+@@ -50,6 +51,12 @@ ZEND_BEGIN_ARG_INFO_EX(arginfo_json_encode, 0, 0, 1)
+ 	ZEND_ARG_INFO(0, depth)
+ ZEND_END_ARG_INFO()
+ 
++ZEND_BEGIN_ARG_INFO_EX(arginfo_json_secure_encode, 0, 0, 1)
++	ZEND_ARG_INFO(0, value)
++	ZEND_ARG_INFO(0, options)
++	ZEND_ARG_INFO(0, depth)
++ZEND_END_ARG_INFO()
++
+ ZEND_BEGIN_ARG_INFO_EX(arginfo_json_decode, 0, 0, 1)
+ 	ZEND_ARG_INFO(0, json)
+ 	ZEND_ARG_INFO(0, assoc)
+@@ -67,6 +74,7 @@ ZEND_END_ARG_INFO()
+ /* {{{ json_functions[] */
+ static const zend_function_entry json_functions[] = {
+ 	PHP_FE(json_encode, arginfo_json_encode)
++	PHP_FE(json_secure_encode, arginfo_json_secure_encode)
+ 	PHP_FE(json_decode, arginfo_json_decode)
+ 	PHP_FE(json_last_error, arginfo_json_last_error)
+ 	PHP_FE(json_last_error_msg, arginfo_json_last_error_msg)
+@@ -785,6 +793,35 @@ static PHP_FUNCTION(json_encode)
+ }
+ /* }}} */
+ 
++static PHP_FUNCTION(json_secure_encode)
++{
++	zval *parameter;
++	smart_str buf = {0};
++	long options = 0;
++    long depth = JSON_PARSER_DEFAULT_DEPTH;
++
++	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "z|ll", &parameter, &options, &depth) == FAILURE) {
++		return;
++	}
++
++    options |= PHP_JSON_HEX_TAG | PHP_JSON_HEX_AMP | PHP_JSON_HEX_APOS | PHP_JSON_HEX_QUOT;
++
++	JSON_G(error_code) = PHP_JSON_ERROR_NONE;
++
++	JSON_G(encode_max_depth) = depth;
++
++	php_json_encode(&buf, parameter, options TSRMLS_CC);
++
++	if (JSON_G(error_code) != PHP_JSON_ERROR_NONE && !(options & PHP_JSON_PARTIAL_OUTPUT_ON_ERROR)) {
++		ZVAL_FALSE(return_value);
++	} else {
++		ZVAL_STRINGL(return_value, buf.c, buf.len, 1);
++	}
++
++	smart_str_free(&buf);
++}
++/* }}} */
++
+ /* {{{ proto mixed json_decode(string json [, bool assoc [, long depth]])
+    Decodes the JSON representation into a PHP value */
+ static PHP_FUNCTION(json_decode)
+diff --git a/ext/standard/html.c b/ext/standard/html.c
+index 414fa65..eb2089b 100644
+--- a/ext/standard/html.c
++++ b/ext/standard/html.c
+@@ -1705,4 +1705,4 @@ PHP_FUNCTION(get_html_translation_table)
+  * End:
+  * vim600: sw=4 ts=4 fdm=marker
+  * vim<600: sw=4 ts=4
+- */
++ */
+\ No newline at end of file

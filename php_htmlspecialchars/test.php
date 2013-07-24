@@ -1,4 +1,9 @@
 <?php
+//      Code Points   First Byte Second Byte Third Byte Fourth Byte
+//   U+0800 -   U+0FFF   E0         A0 - BF     80 - BF
+//   U+D000 -   U+D7FF   ED         80 - 9F     80 - BF
+//  U+10000 -  U+3FFFF   F0         90 - BF     80 - BF    80 - BF
+// U+100000 - U+10FFFF   F4         80 - 8F     80 - BF    80 - BF
 
 function str_scrub($str)
 {

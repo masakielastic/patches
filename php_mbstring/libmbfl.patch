@@ -1,0 +1,68 @@
+diff --git a/filters/mbfilter_utf8.c b/filters/mbfilter_utf8.c
+index 5539700..34aaea9 100644
+--- a/filters/mbfilter_utf8.c
++++ b/filters/mbfilter_utf8.c
+@@ -145,11 +145,10 @@ retry:
+ 	case 0x20: /* 3byte code 2nd char: 0:0xa0-0xbf,D:0x80-9F,1-C,E-F:0x80-0x9f */
+ 		s = (filter->cache<<6) | (c & 0x3f);
+ 		c1 = filter->cache & 0xf;
+-		
+-		if ((c >= 0x80 && c <= 0xbf) &&
+-			((c1 == 0x0 && c >= 0xa0) ||
+-			 (c1 == 0xd && c < 0xa0) ||
+-			 (c1 > 0x0 && c1 != 0xd))) {
++
++		if (c1 == 0x0 ? (c >= 0xa0 && c <= 0xbf) :
++			(c1 == 0xd ? (c >= 0x80 && c < 0xa0) :
++			(c >= 0x80 && c <= 0xbf))) {
+ 			filter->cache = s;
+ 			filter->status++;
+ 		} else {
+@@ -160,11 +159,10 @@ retry:
+ 	case 0x30: /* 4byte code 2nd char: 0:0x90-0xbf,1-3:0x80-0xbf,4:0x80-0x8f */
+ 		s = (filter->cache<<6) | (c & 0x3f);
+ 		c1 = filter->cache & 0x7;
+-		
+-		if ((c >= 0x80 && c <= 0xbf) &&
+-			((c1 == 0x0 && c >= 0x90) ||
+-			 (c1 == 0x4 && c < 0x90) ||
+-			 (c1 > 0x0 && c1 != 0x4))) {
++
++		if (c1 == 0x0 ? (c >= 0x90 && c <= 0xbf) :
++			(c1 == 0x4 ? (c >= 0x80 && c < 0x90) :
++			(c >= 0x80 && c <= 0xbf))) {
+ 			filter->cache = s;
+ 			filter->status++;
+ 		} else {
+diff --git a/filters/mbfilter_utf8_mobile.c b/filters/mbfilter_utf8_mobile.c
+index f9b643c..fcf0fce 100644
+--- a/filters/mbfilter_utf8_mobile.c
++++ b/filters/mbfilter_utf8_mobile.c
+@@ -245,10 +245,9 @@ retry:
+ 		s = (filter->cache<<6) | (c & 0x3f);
+ 		c1 = filter->cache & 0xf;
+ 		
+-		if ((c >= 0x80 && c <= 0xbf) &&
+-			((c1 == 0x0 && c >= 0xa0) ||
+-			 (c1 == 0xd && c < 0xa0) ||
+-			 (c1 > 0x0 && c1 != 0xd))) {
++		if (c1 == 0x0 ? (c >= 0xa0 && c <= 0xbf) :
++			(c1 == 0xd ? (c >= 0x80 && c < 0xa0) :
++			(c >= 0x80 && c <= 0xbf))) {
+ 			filter->cache = s;
+ 			filter->status++;
+ 		} else {
+@@ -260,10 +259,9 @@ retry:
+ 		s = (filter->cache<<6) | (c & 0x3f);
+ 		c1 = filter->cache & 0x7;
+ 		
+-		if ((c >= 0x80 && c <= 0xbf) &&
+-			((c1 == 0x0 && c >= 0x90) ||
+-			 (c1 == 0x4 && c < 0x90) ||
+-			 (c1 > 0x0 && c1 != 0x4))) {
++		if (c1 == 0x0 ? (c >= 0x90 && c <= 0xbf) :
++			(c1 == 0x4 ? (c >= 0x80 && c < 0x90) :
++			(c >= 0x80 && c <= 0xbf))) {
+ 			filter->cache = s;
+ 			filter->status++;
+ 		} else {
